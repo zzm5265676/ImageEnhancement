@@ -2,322 +2,956 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
-<title>RGB → HSV → HVI 可视化（圆盘+一维H断裂）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RGB → HSV → HVI 单屏可视化仪表盘</title>
 <style>
-* {
-    box-sizing: border-box;
-    font-family: system-ui, sans-serif;
+:root {
+    --bg-1: #eef4ff;
+    --bg-2: #f8fbff;
+    --card: rgba(255, 255, 255, 0.84);
+    --line: rgba(148, 163, 184, 0.28);
+    --text: #0f172a;
+    --muted: #64748b;
+    --blue: #2563eb;
+    --green: #059669;
+    --purple: #7c3aed;
+    --shadow: 0 16px 40px rgba(15, 23, 42, 0.10);
 }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
 body {
-    max-width: 1000px;
-    margin: 30px auto;
-    padding: 20px;
-    background: #f5f7fa;
+    margin: 0;
+    color: var(--text);
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background:
+        radial-gradient(circle at 10% 0%, rgba(59, 130, 246, 0.24), transparent 28%),
+        radial-gradient(circle at 92% 8%, rgba(168, 85, 247, 0.20), transparent 26%),
+        linear-gradient(135deg, var(--bg-1), var(--bg-2));
+    overflow: hidden;
 }
-.card {
-    background: white;
-    padding: 24px;
-    border-radius: 16px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+.app {
+    height: 100vh;
+    max-width: 1520px;
+    margin: 0 auto;
+    padding: 12px;
+    display: grid;
+    grid-template-rows: auto 1fr;
+    gap: 10px;
 }
-.color-preview {
-    width: 100%;
-    height: 120px;
-    border-radius: 12px;
-    margin: 16px 0;
-    border: 1px solid #eee;
-}
-.row {
+.header {
+    padding: 12px 18px;
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    background: rgba(255,255,255,0.62);
+    backdrop-filter: blur(16px);
+    box-shadow: var(--shadow);
     display: flex;
+    align-items: center;
+    justify-content: space-between;
     gap: 12px;
-    margin-bottom: 12px;
-    flex-wrap: wrap;
 }
-.col {
-    flex: 1; min-width: 120px;
+.header h1 {
+    margin: 0 0 4px;
+    font-size: clamp(22px, 2.3vw, 30px);
+    letter-spacing: -0.04em;
 }
-input {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    font-size: 16px;
+.header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+}
+.badges { display: flex; gap: 8px; flex-wrap: wrap; }
+.badge {
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    background: rgba(255,255,255,0.78);
+    border: 1px solid var(--line);
+    color: #334155;
+}
+.layout {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 330px minmax(460px, 1fr) 390px;
+    gap: 10px;
+}
+.panel {
+    min-height: 0;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(18px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.panel-head {
+    padding: 12px 14px 8px;
+    border-bottom: 1px solid rgba(148,163,184,0.16);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.panel-head h2, .panel-head h3 {
+    margin: 0;
+    font-size: 15px;
+    letter-spacing: -0.02em;
+}
+.panel-head span {
+    color: var(--muted);
+    font-size: 12px;
+}
+.panel-body {
+    padding: 12px;
+    min-height: 0;
+}
+.left-body {
+    display: grid;
+    gap: 10px;
+}
+.preview {
+    height: 126px;
+    border-radius: 22px;
+    border: 1px solid rgba(15,23,42,0.12);
+    position: relative;
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.24), 0 14px 34px rgba(15,23,42,0.10);
+}
+.preview::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.22), transparent 45%, rgba(0,0,0,0.08));
+}
+.preview-chip {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    z-index: 1;
+}
+.preview-chip span {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.82);
+    font-size: 12px;
+    font-weight: 800;
+    color: #1e293b;
+}
+.section-card {
+    padding: 10px;
+    border-radius: 18px;
+    border: 1px solid rgba(148,163,184,0.20);
+    background: rgba(255,255,255,0.55);
+}
+.section-title {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 800;
+    color: #334155;
+}
+.field-grid { display: grid; gap: 8px; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rgb-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.field label {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    margin-bottom: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+}
+input[type="number"], input[type="color"], input[type="range"] { width: 100%; }
+input[type="number"] {
+    height: 36px;
+    padding: 7px 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(148,163,184,0.40);
+    background: rgba(255,255,255,0.80);
+    font-size: 14px;
+    font-weight: 700;
+    outline: none;
+}
+input[type="number"]:focus {
+    border-color: rgba(37,99,235,0.65);
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.10);
 }
 input[type="color"] {
     height: 44px;
-    padding: 2px;
+    border: 0;
+    padding: 0;
+    border-radius: 14px;
+    overflow: hidden;
+    background: transparent;
+    cursor: pointer;
 }
-.value {
-    font-size: 18px;
-    font-weight: 600;
-    color: #2563eb;
+input[type="range"] { accent-color: var(--blue); }
+.k-row { display: grid; grid-template-columns: 1fr 78px; gap: 8px; align-items: end; }
+.quick-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
 }
-.label {
-    font-size: 14px;
-    color: #666;
-    margin-bottom: 4px;
+.quick-card {
+    padding: 9px 10px;
+    border-radius: 16px;
+    border: 1px solid rgba(148,163,184,0.22);
+    background: linear-gradient(180deg, rgba(255,255,255,0.84), rgba(248,250,252,0.74));
 }
-h2 {
-    margin-top: 0;
-    color: #333;
+.quick-card .name {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
-.title {
-    text-align: center;
-    margin-bottom: 24px;
+.quick-card .value {
+    margin-top: 4px;
+    font-size: 20px;
+    font-weight: 850;
+    letter-spacing: -0.04em;
+}
+.quick-card.blue .value { color: var(--blue); }
+.quick-card.green .value { color: var(--green); }
+.quick-card.purple .value { color: var(--purple); }
+.mid-col {
+    min-height: 0;
+    display: grid;
+    grid-template-rows: 1fr 200px;
+    gap: 10px;
+}
+.canvas-body {
+    min-height: 0;
+    padding: 10px;
+    display: grid;
+    place-items: center;
+}
+.canvas-wrap {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
 }
 canvas {
-    border-radius: 12px;
-    background: #f9f9f9;
-    touch-action: none;
+    width: 100%;
+    height: 100%;
+    display: block;
+    border-radius: 20px;
+    border: 1px solid rgba(148,163,184,0.20);
+    background: rgba(255,255,255,0.72);
 }
-.canvas-row {
+.right-body {
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto auto auto 1fr;
+    gap: 10px;
+}
+.summary-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+.summary-box {
+    padding: 9px;
+    border-radius: 16px;
+    border: 1px solid rgba(148,163,184,0.22);
+    background: rgba(255,255,255,0.64);
+}
+.summary-box .k { font-size: 11px; color: var(--muted); font-weight: 800; }
+.summary-box .v { margin-top: 4px; font-size: 18px; font-weight: 850; letter-spacing: -0.04em; }
+.space-card {
+    padding: 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(148,163,184,0.22);
+    background: rgba(255,255,255,0.56);
+}
+.space-head {
     display: flex;
-    gap: 20px;
-    justify-content: center;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.space-head h3 { margin: 0; font-size: 14px; }
+.space-head span { font-size: 12px; color: var(--muted); }
+.swatch-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.swatch-card {
+    padding: 8px;
+    border-radius: 16px;
+    border: 1px solid rgba(148,163,184,0.20);
+    background: rgba(255,255,255,0.68);
+}
+.swatch-label {
+    font-size: 11px;
+    color: var(--muted);
+    font-weight: 800;
+    margin-bottom: 6px;
+}
+.swatch-box {
+    height: 62px;
+    border-radius: 14px;
+    border: 1px solid rgba(15,23,42,0.10);
+    position: relative;
+    overflow: hidden;
+}
+.swatch-box::after {
+    content: attr(data-text);
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    padding: 4px 7px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #1e293b;
+    background: rgba(255,255,255,0.78);
+}
+.channel-list {
+    display: grid;
+    gap: 6px;
+}
+.channel-row {
+    display: grid;
+    grid-template-columns: 52px 66px 1fr 1fr;
+    gap: 6px;
+    align-items: center;
+}
+.channel-row .tag {
+    padding: 6px 8px;
+    border-radius: 999px;
+    background: rgba(15,23,42,0.06);
+    font-size: 11px;
+    font-weight: 800;
+    text-align: center;
+    color: #334155;
+}
+.channel-row .num {
+    font-size: 12px;
+    font-weight: 800;
+    color: #0f172a;
+    text-align: right;
+}
+.mini-box {
+    height: 28px;
+    border-radius: 10px;
+    border: 1px solid rgba(15,23,42,0.10);
+    position: relative;
+    overflow: hidden;
+}
+.mini-box::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.20), transparent 45%, rgba(0,0,0,0.04));
+}
+.formula-box {
+    padding: 10px;
+    border-radius: 18px;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-family: Consolas, "Cascadia Code", monospace;
+    font-size: 12px;
+    line-height: 1.55;
+}
+.formula-box b { color: #93c5fd; }
+.note-list {
+    margin-top: 8px;
+    display: grid;
+    gap: 6px;
+}
+.note {
+    padding: 8px 10px;
+    border-radius: 14px;
+    background: rgba(248,250,252,0.76);
+    border: 1px solid rgba(148,163,184,0.22);
+    font-size: 12px;
+    color: #334155;
+    line-height: 1.45;
+}
+.note strong { color: #0f172a; }
+.footer-tips {
+    display: flex;
+    gap: 6px;
     flex-wrap: wrap;
-    margin-top: 10px;
+    margin-top: 8px;
+}
+.footer-tips span {
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(15,23,42,0.06);
+    color: #475569;
+    font-size: 11px;
+    font-weight: 800;
+}
+@media (max-width: 1180px) {
+    body { overflow: auto; }
+    .app { height: auto; min-height: 100vh; }
+    .layout { grid-template-columns: 1fr; }
+    .mid-col { grid-template-rows: 420px 220px; }
+    .right-body { grid-template-rows: auto auto auto auto; }
+}
+@media (max-height: 780px) and (min-width: 1181px) {
+    .app { padding: 8px; gap: 8px; }
+    .header { padding: 10px 14px; }
+    .panel-head { padding: 10px 12px 7px; }
+    .panel-body { padding: 10px; }
+    .preview { height: 110px; }
+    .mid-col { grid-template-rows: 1fr 184px; }
+    .swatch-box { height: 54px; }
+    .formula-box, .note { font-size: 11px; }
+    .channel-row { grid-template-columns: 48px 62px 1fr 1fr; }
 }
 </style>
 </head>
 <body>
-
-<div class="title">
-    <h1>RGB → HSV → HVI 可视化工具</h1>
-    <p>支持：HV极坐标圆盘 | 一维H色调断裂 | 论文公式实时计算</p>
-</div>
-
-<!-- 颜色输入 -->
-<div class="card">
-    <h2>1. 选择 RGB 颜色</h2>
-    <div class="row">
-        <input type="color" id="colorPicker" value="#ff0000">
-    </div>
-    <div class="row">
-        <div class="col">
-            <div class="label">R (0-255)</div>
-            <input type="number" id="r" min="0" max="255" value="255">
+<div class="app">
+    <header class="header">
+        <div>
+            <h1>RGB → HSV → HVI 可视化仪表盘</h1>
+            <p>左侧输入与 RGB 拾取，中间展示一维 H 与 HV 圆盘，右侧集中显示 HSV / HVI 数值、颜色表示与灰度相对值。</p>
         </div>
-        <div class="col">
-            <div class="label">G (0-255)</div>
-            <input type="number" id="g" min="0" max="255" value="0">
+        <div class="badges">
+            <span class="badge">H ∈ [0, 6)</span>
+            <span class="badge">θ = πH / 3</span>
+            <span class="badge">ρ = Ck · S</span>
         </div>
-        <div class="col">
-            <div class="label">B (0-255)</div>
-            <input type="number" id="b" min="0" max="255" value="0">
-        </div>
-        <div class="col">
-            <div class="label">参数 k</div>
-            <input type="number" id="k" min="0.1" max="10" step="0.1" value="1.0">
-        </div>
-    </div>
-</div>
+    </header>
 
-<!-- 颜色预览 -->
-<div class="card">
-    <h2>2. 颜色预览</h2>
-    <div id="preview" class="color-preview"></div>
-</div>
+    <main class="layout">
+        <section class="panel">
+            <div class="panel-head">
+                <h2>① RGB 输入 / 拾取</h2>
+                <span>颜色 + 参数 k</span>
+            </div>
+            <div class="panel-body left-body">
+                <div id="preview" class="preview">
+                    <div class="preview-chip">
+                        <span id="hexText">#FF0000</span>
+                        <span id="rgbText">RGB(255, 0, 0)</span>
+                    </div>
+                </div>
 
-<!-- HSV 输出 -->
-<div class="card">
-    <h2>3. HSV（论文版 H∈[0,6]）</h2>
-    <div class="row">
-        <div class="col"><div class="label">H</div><div id="hsv_h" class="value">0.0000</div></div>
-        <div class="col"><div class="label">S</div><div id="hsv_s" class="value">1.0000</div></div>
-        <div class="col"><div class="label">V=Imax</div><div id="hsv_v" class="value">1.0000</div></div>
-    </div>
-</div>
+                <div class="section-card field-grid">
+                    <div class="section-title">颜色输入</div>
+                    <div class="field">
+                        <label>颜色选择器 <span>同步 RGB</span></label>
+                        <input type="color" id="colorPicker" value="#ff0000" />
+                    </div>
+                    <div class="rgb-row">
+                        <div class="field"><label>R <span>0-255</span></label><input type="number" id="r" min="0" max="255" value="255" /></div>
+                        <div class="field"><label>G <span>0-255</span></label><input type="number" id="g" min="0" max="255" value="0" /></div>
+                        <div class="field"><label>B <span>0-255</span></label><input type="number" id="b" min="0" max="255" value="0" /></div>
+                    </div>
+                </div>
 
-<!-- HVI 输出 -->
-<div class="card">
-    <h2>4. HVI（论文核心）</h2>
-    <div class="row">
-        <div class="col"><div class="label">Ĥ</div><div id="hvi_H" class="value">1.0000</div></div>
-        <div class="col"><div class="label">V̂</div><div id="hvi_V" class="value">0.0000</div></div>
-        <div class="col"><div class="label">Imax</div><div id="hvi_imax" class="value">1.0000</div></div>
-        <div class="col"><div class="label">Ck</div><div id="hvi_ck" class="value">1.0000</div></div>
-    </div>
-</div>
+                <div class="section-card field-grid">
+                    <div class="section-title">密度参数 k</div>
+                    <div class="field">
+                        <label>k 滑动条 <span id="kText">1.00</span></label>
+                        <div class="k-row">
+                            <input type="range" id="kRange" min="0.1" max="10" step="0.1" value="1.0" />
+                            <input type="number" id="k" min="0.1" max="10" step="0.1" value="1.0" />
+                        </div>
+                    </div>
+                </div>
 
-<!-- 可视化：一维H断裂 + HV圆盘 -->
-<div class="card">
-    <h2>5. 可视化：一维H断裂（HSV缺陷）</h2>
-    <div class="canvas-row">
-        <canvas id="hCanvas" width="400" height="120"></canvas>
-    </div>
+                <div class="section-card">
+                    <div class="section-title">快捷指标</div>
+                    <div class="quick-metrics">
+                        <div class="quick-card blue"><div class="name">H</div><div id="quickH" class="value">0.000</div></div>
+                        <div class="quick-card blue"><div class="name">S</div><div id="quickS" class="value">1.000</div></div>
+                        <div class="quick-card green"><div class="name">V / Imax</div><div id="quickV" class="value">1.000</div></div>
+                        <div class="quick-card purple"><div class="name">Ck·S / ρ</div><div id="quickRho" class="value">1.000</div></div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-    <h2 style="margin-top:30px">6. 可视化：HV 极坐标平面（HVI连续无断裂）</h2>
-    <div class="canvas-row">
-        <canvas id="hvCanvas" width="360" height="360"></canvas>
-    </div>
+        <section class="mid-col">
+            <div class="panel">
+                <div class="panel-head">
+                    <h2>② HVI：HV 极坐标圆盘</h2>
+                    <span>色相连续展开，无一维断裂</span>
+                </div>
+                <div class="canvas-body">
+                    <div class="canvas-wrap">
+                        <canvas id="hvCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-head">
+                    <h2>③ HSV：一维 H 色带</h2>
+                    <span>H = 0 与 H = 6 同色但数值断裂</span>
+                </div>
+                <div class="canvas-body">
+                    <div class="canvas-wrap">
+                        <canvas id="hCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel">
+            <div class="panel-head">
+                <h2>④ HSV / HVI 数值与相对值</h2>
+                <span>彩色显示 + 灰度显示</span>
+            </div>
+            <div class="panel-body right-body">
+                <div class="summary-strip">
+                    <div class="summary-box"><div class="k">θ (rad)</div><div id="thetaVal" class="v">0.0000</div></div>
+                    <div class="summary-box"><div class="k">θ (deg)</div><div id="thetaDegVal" class="v">0.00°</div></div>
+                    <div class="summary-box"><div class="k">Ck · S</div><div id="rhoVal" class="v">1.0000</div></div>
+                </div>
+
+                <div class="space-card">
+                    <div class="space-head">
+                        <h3>HSV 空间</h3>
+                        <span>H / S / V</span>
+                    </div>
+                    <div class="swatch-row">
+                        <div class="swatch-card">
+                            <div class="swatch-label">整体颜色表示</div>
+                            <div id="hsvColorBox" class="swatch-box" data-text="HSV Color"></div>
+                        </div>
+                        <div class="swatch-card">
+                            <div class="swatch-label">整体灰度表示</div>
+                            <div id="hsvGrayBox" class="swatch-box" data-text="HSV Gray"></div>
+                        </div>
+                    </div>
+                    <div class="channel-list">
+                        <div class="channel-row">
+                            <div class="tag">H</div><div id="hsvHNum" class="num">0.0000</div>
+                            <div id="hsvHBoxColor" class="mini-box"></div>
+                            <div id="hsvHBoxGray" class="mini-box"></div>
+                        </div>
+                        <div class="channel-row">
+                            <div class="tag">S</div><div id="hsvSNum" class="num">1.0000</div>
+                            <div id="hsvSBoxColor" class="mini-box"></div>
+                            <div id="hsvSBoxGray" class="mini-box"></div>
+                        </div>
+                        <div class="channel-row">
+                            <div class="tag">V</div><div id="hsvVBoxNum" class="num">1.0000</div>
+                            <div id="hsvVBoxColor" class="mini-box"></div>
+                            <div id="hsvVBoxGray" class="mini-box"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-card">
+                    <div class="space-head">
+                        <h3>HVI 空间</h3>
+                        <span>Ĥ / V̂ / θ / Ck / Ck·S</span>
+                    </div>
+                    <div class="swatch-row">
+                        <div class="swatch-card">
+                            <div class="swatch-label">整体颜色表示</div>
+                            <div id="hviColorBox" class="swatch-box" data-text="HVI Color"></div>
+                        </div>
+                        <div class="swatch-card">
+                            <div class="swatch-label">整体灰度表示</div>
+                            <div id="hviGrayBox" class="swatch-box" data-text="HVI Gray"></div>
+                        </div>
+                    </div>
+                    <div class="channel-list">
+                        <div class="channel-row">
+                            <div class="tag">Ĥ</div><div id="hviHNum" class="num">1.0000</div>
+                            <div id="hviHBoxColor" class="mini-box"></div>
+                            <div id="hviHBoxGray" class="mini-box"></div>
+                        </div>
+                        <div class="channel-row">
+                            <div class="tag">V̂</div><div id="hviVNum" class="num">0.0000</div>
+                            <div id="hviVBoxColor" class="mini-box"></div>
+                            <div id="hviVBoxGray" class="mini-box"></div>
+                        </div>
+                        <div class="channel-row">
+                            <div class="tag">θ</div><div id="hviThetaNum" class="num">0.0000</div>
+                            <div id="hviThetaColor" class="mini-box"></div>
+                            <div id="hviThetaGray" class="mini-box"></div>
+                        </div>
+                        <div class="channel-row">
+                            <div class="tag">Ck</div><div id="hviCkNum" class="num">1.0000</div>
+                            <div id="hviCkColor" class="mini-box"></div>
+                            <div id="hviCkGray" class="mini-box"></div>
+                        </div>
+                        <div class="channel-row">
+                            <div class="tag">Ck·S</div><div id="hviRhoNum" class="num">1.0000</div>
+                            <div id="hviRhoColor" class="mini-box"></div>
+                            <div id="hviRhoGray" class="mini-box"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="formula-box">
+                        <div><b>RGB → HSV：</b> V = max(r,g,b), S = Δ / V, H ∈ [0,6)</div>
+                        <div><b>HSV → HVI：</b> θ = πH / 3, Ck = sin(πV/2)<sup>1/k</sup></div>
+                        <div><b>坐标：</b> Ĥ = Ck·S·cosθ，V̂ = Ck·S·sinθ</div>
+                        <div><b>核对：</b> ρ = √(Ĥ² + V̂²) = Ck·S</div>
+                    </div>
+                    <div class="note-list">
+                        <div id="checkTheta" class="note"><strong>角度核对：</strong>θ = atan2(V̂, Ĥ) 与 πH/3 一致。</div>
+                        <div id="checkRadius" class="note"><strong>半径核对：</strong>ρ = √(Ĥ² + V̂²) 与 Ck·S 一致。</div>
+                        <div id="pointExplain" class="note"><strong>当前解释：</strong>当前点位于圆盘右侧，半径由 Ck·S 决定。</div>
+                    </div>
+                    <div class="footer-tips">
+                        <span>左列：RGB 输入与 k</span>
+                        <span>中列：圆盘 + 一维 H</span>
+                        <span>右列：数值 + 彩色/灰度相对值</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
 </div>
 
 <script>
-// 绑定输入
-const r = document.getElementById('r');
-const g = document.getElementById('g');
-const b = document.getElementById('b');
-const k = document.getElementById('k');
-const picker = document.getElementById('colorPicker');
-const preview = document.getElementById('preview');
-const hvCanvas = document.getElementById('hvCanvas');
-const hCanvas = document.getElementById('hCanvas');
+const $ = id => document.getElementById(id);
+const rInput = $('r');
+const gInput = $('g');
+const bInput = $('b');
+const kInput = $('k');
+const kRange = $('kRange');
+const picker = $('colorPicker');
+const preview = $('preview');
+const hvCanvas = $('hvCanvas');
+const hCanvas = $('hCanvas');
 const ctxHv = hvCanvas.getContext('2d');
 const ctxH = hCanvas.getContext('2d');
 
-picker.addEventListener('input', () => {
-    const c = picker.value;
-    const rr = parseInt(c.slice(1,3),16);
-    const gg = parseInt(c.slice(3,5),16);
-    const bb = parseInt(c.slice(5,7),16);
-    r.value = rr; g.value = gg; b.value = bb; update();
-});
-[r,g,b,k].forEach(el => el.addEventListener('input', update));
+function clamp(x, lo, hi) { return Math.min(hi, Math.max(lo, x)); }
+function fmt(x, n = 4) { return Number.isFinite(x) ? x.toFixed(n) : '0.0000'; }
+function fmtDeg(x) { return `${x.toFixed(2)}°`; }
+function toHex(R, G, B) {
+    return '#' + [R, G, B].map(v => clamp(Math.round(v), 0, 255).toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+function grayCss(v) {
+    const t = Math.round(clamp(v, 0, 1) * 255);
+    return `rgb(${t}, ${t}, ${t})`;
+}
+function setBoxColor(id, cssColor, text = '') {
+    const el = $(id);
+    el.style.background = cssColor;
+    if (text !== undefined) el.dataset.text = text;
+}
 
-// ------------------------------
-// 论文公式：RGB → HSV
-// ------------------------------
 function rgb2hsv(r01, g01, b01) {
     const maxc = Math.max(r01, g01, b01);
     const minc = Math.min(r01, g01, b01);
     const delta = maxc - minc;
     let h = 0, s = 0, v = maxc;
-    if (delta === 0) { h=0; s=0; }
-    else {
+    if (delta > 1e-12 && maxc > 1e-12) {
         s = delta / maxc;
         if (maxc === r01) h = (g01 - b01) / delta;
         else if (maxc === g01) h = 2 + (b01 - r01) / delta;
         else h = 4 + (r01 - g01) / delta;
-        h = h % 6;
-        if (h < 0) h += 6;
+        h = ((h % 6) + 6) % 6;
     }
-    return { h, s, v };
+    return { h, s, v, delta };
 }
 
-// ------------------------------
-// 论文公式：HSV → HVI
-// ------------------------------
-function hsv2hvi(h_hsv, s_hsv, v_hsv, k_val) {
-    const eps = 1e-8;
-    const h_polar = Math.cos(Math.PI * h_hsv / 3);
-    const v_polar = Math.sin(Math.PI * h_hsv / 3);
-    const Ck = Math.sin(Math.PI * v_hsv / 2) ** (1 / (k_val + eps));
-    const H_hat = Ck * s_hsv * h_polar;
-    const V_hat = Ck * s_hsv * v_polar;
-    return { H_hat, V_hat, Ck, h_polar, v_polar };
-}
-
-// ------------------------------
-// 绘制一维H：展示红色断裂
-// ------------------------------
-function drawHueLine(hValue) {
-    ctxH.clearRect(0,0,400,120);
-    const w = 400, h = 120;
-    ctxH.lineWidth = 2;
-    // 画色带
-    const grd = ctxH.createLinearGradient(0,60, w,60);
-    for(let t=0;t<=1;t+=1/6){
-        const h = t*6;
-        const rgb = hsv2rgb(h,1,1);
-        grd.addColorStop(t, `rgb(${rgb.r|0},${rgb.g|0},${rgb.b|0})`);
-    }
-    ctxH.fillStyle = grd;
-    ctxH.fillRect(20,40,w-40,40);
-    // 红色断裂标记
-    ctxH.fillStyle = '#ff0000';
-    ctxH.font = '14px bold';
-    ctxH.fillText('断裂', 9, 28);
-    ctxH.fillText('断裂', 372, 28);
-    ctxH.strokeStyle = 'red';
-    ctxH.beginPath(); ctxH.moveTo(20,35); ctxH.lineTo(20,85); ctxH.stroke();
-    ctxH.beginPath(); ctxH.moveTo(380,35); ctxH.lineTo(380,85); ctxH.stroke();
-    // 当前指针
-    const x = 20 + (hValue/6)*(w-40);
-    ctxH.strokeStyle = 'white'; ctxH.lineWidth=3;
-    ctxH.beginPath(); ctxH.moveTo(x,30); ctxH.lineTo(x,90); ctxH.stroke();
-}
-
-// ------------------------------
-// 绘制 HV 极坐标圆盘
-// ------------------------------
-function drawHvDisk(H_hat, V_hat) {
-    const cx = 180, cy = 180, r = 160;
-    ctxHv.clearRect(0,0,360,360);
-    // 绘制彩色圆盘
-    for(let ang=0;ang<Math.PI*2;ang+=0.01){
-        const ca = Math.cos(ang);
-        const sa = Math.sin(ang);
-        const h = (3*ang/Math.PI) % 6;
-        const rgb = hsv2rgb(h, 1, 1);
-        ctxHv.strokeStyle = `rgb(${rgb.r|0},${rgb.g|0},${rgb.b|0})`;
-        ctxHv.lineWidth = 3;
-        ctxHv.beginPath();
-        ctxHv.moveTo(cx,cy);
-        ctxHv.lineTo(cx+ca*r, cy+sa*r);
-        ctxHv.stroke();
-    }
-    // 画当前点
-    const px = cx + H_hat * r;
-    const py = cy + V_hat * r;
-    ctxHv.fillStyle = 'white';
-    ctxHv.strokeStyle = 'black';
-    ctxHv.lineWidth = 4;
-    ctxHv.beginPath();
-    ctxHv.arc(px, py, 8, 0, Math.PI*2);
-    ctxHv.fill(); ctxHv.stroke();
-}
-
-// ------------------------------
-// 辅助：HSV转RGB用于绘图
-// ------------------------------
 function hsv2rgb(h, s, v) {
-    let c = v * s;
-    let x = c * (1 - Math.abs((h % 2) - 1));
-    let m = v - c;
-    let r=0,g=0,b=0;
-    if(h>=0&&h<1){r=c;g=x;b=0;}
-    else if(h>=1&&h<2){r=x;g=c;b=0;}
-    else if(h>=2&&h<3){r=0;g=c;b=x;}
-    else if(h>=3&&h<4){r=0;g=x;b=c;}
-    else if(h>=4&&h<5){r=x;g=0;b=c;}
-    else{r=c;g=0;b=x;}
-    return {r:(r+m)*255,g:(g+m)*255,b:(b+m)*255};
+    h = ((h % 6) + 6) % 6;
+    s = clamp(s, 0, 1);
+    v = clamp(v, 0, 1);
+    const c = v * s;
+    const x = c * (1 - Math.abs((h % 2) - 1));
+    const m = v - c;
+    let rr = 0, gg = 0, bb = 0;
+    if (h < 1) { rr = c; gg = x; bb = 0; }
+    else if (h < 2) { rr = x; gg = c; bb = 0; }
+    else if (h < 3) { rr = 0; gg = c; bb = x; }
+    else if (h < 4) { rr = 0; gg = x; bb = c; }
+    else if (h < 5) { rr = x; gg = 0; bb = c; }
+    else { rr = c; gg = 0; bb = x; }
+    return { r: (rr + m) * 255, g: (gg + m) * 255, b: (bb + m) * 255 };
 }
 
-// ------------------------------
-// 全局更新
-// ------------------------------
-function update() {
-    const R = Math.min(255, Math.max(0, Number(r.value) || 0));
-    const G = Math.min(255, Math.max(0, Number(g.value) || 0));
-    const B = Math.min(255, Math.max(0, Number(b.value) || 0));
-    const k_val = Number(k.value) || 1.0;
-    const r01=R/255,g01=G/255,b01=B/255;
+function rgbCss(rgb) {
+    return `rgb(${Math.round(rgb.r)}, ${Math.round(rgb.g)}, ${Math.round(rgb.b)})`;
+}
 
-    const hsv = rgb2hsv(r01,g01,b01);
-    const hvi = hsv2hvi(hsv.h, hsv.s, hsv.v, k_val);
+function hsv2hvi(h, s, v, k) {
+    const safeK = Math.max(1e-6, k);
+    const theta = Math.PI * h / 3;
+    const Ck = Math.pow(Math.max(0, Math.sin(Math.PI * v / 2)), 1 / safeK);
+    const radius = Ck * s;
+    const H_hat = radius * Math.cos(theta);
+    const V_hat = radius * Math.sin(theta);
+    return { H_hat, V_hat, theta, Ck, radius, targetRadius: radius };
+}
 
-    // 显示数值
-    document.getElementById('hsv_h').innerText = hsv.h.toFixed(4);
-    document.getElementById('hsv_s').innerText = hsv.s.toFixed(4);
-    document.getElementById('hsv_v').innerText = hsv.v.toFixed(4);
-    document.getElementById('hvi_H').innerText = hvi.H_hat.toFixed(4);
-    document.getElementById('hvi_V').innerText = hvi.V_hat.toFixed(4);
-    document.getElementById('hvi_imax').innerText = hsv.v.toFixed(4);
-    document.getElementById('hvi_ck').innerText = hvi.Ck.toFixed(4);
+function angleToUnit(theta) {
+    let t = theta % (Math.PI * 2);
+    if (t < 0) t += Math.PI * 2;
+    return t / (Math.PI * 2);
+}
 
-    // 预览
-    preview.style.backgroundColor = `rgb(${R},${G},${B})`;
-    picker.value = `#${((1<<24)+(R<<16)+(G<<8)+B).toString(16).slice(1)}`;
+function axisColor(v, posHue, negHue) {
+    const hue = v >= 0 ? posHue : negHue;
+    const sat = clamp(Math.abs(v), 0, 1);
+    return rgbCss(hsv2rgb(hue, sat, 1));
+}
 
-    // 画图
+function mixedGray(...vals) {
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    return grayCss(avg);
+}
+
+function resizeCanvasToDisplaySize(canvas) {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+    }
+    return { width, height, dpr };
+}
+
+function roundRect(ctx, x, y, w, h, r, fill, stroke) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.strokeStyle = stroke; ctx.stroke(); }
+}
+
+function drawHueLine(hValue) {
+    resizeCanvasToDisplaySize(hCanvas);
+    const w = hCanvas.width;
+    const h = hCanvas.height;
+    ctxH.clearRect(0, 0, w, h);
+
+    const pad = Math.max(42, w * 0.06);
+    const barH = Math.min(58, h * 0.30);
+    const y = h * 0.50;
+    const x0 = pad;
+    const x1 = w - pad;
+
+    const grad = ctxH.createLinearGradient(x0, y, x1, y);
+    for (let i = 0; i <= 6; i++) {
+        grad.addColorStop(i / 6, rgbCss(hsv2rgb(i, 1, 1)));
+    }
+    roundRect(ctxH, x0, y - barH / 2, x1 - x0, barH, 18, grad, 'rgba(15,23,42,0.08)');
+
+    ctxH.setLineDash([10, 8]);
+    ctxH.lineWidth = 3;
+    ctxH.strokeStyle = '#dc2626';
+    ctxH.beginPath(); ctxH.moveTo(x0, y - barH / 2 - 18); ctxH.lineTo(x0, y + barH / 2 + 18); ctxH.stroke();
+    ctxH.beginPath(); ctxH.moveTo(x1, y - barH / 2 - 18); ctxH.lineTo(x1, y + barH / 2 + 18); ctxH.stroke();
+    ctxH.setLineDash([]);
+
+    ctxH.fillStyle = '#991b1b';
+    ctxH.font = `700 ${Math.max(14, Math.round(h * 0.12))}px system-ui`;
+    ctxH.fillText('断裂', x0 - 18, y - barH / 2 - 24);
+    ctxH.fillText('断裂', x1 - 18, y - barH / 2 - 24);
+
+    ctxH.fillStyle = '#475569';
+    ctxH.font = `700 ${Math.max(14, Math.round(h * 0.11))}px system-ui`;
+    ctxH.fillText('H=0', x0 - 14, h - 16);
+    ctxH.fillText('H=6', x1 - 16, h - 16);
+
+    const x = x0 + (hValue / 6) * (x1 - x0);
+    ctxH.strokeStyle = '#111827';
+    ctxH.lineWidth = 4;
+    ctxH.beginPath(); ctxH.moveTo(x, y - barH / 2 - 24); ctxH.lineTo(x, y + barH / 2 + 24); ctxH.stroke();
+    ctxH.fillStyle = '#111827';
+    ctxH.beginPath(); ctxH.arc(x, y - barH / 2 - 32, 8, 0, Math.PI * 2); ctxH.fill();
+    ctxH.font = `800 ${Math.max(14, Math.round(h * 0.11))}px system-ui`;
+    ctxH.fillText(`当前 H = ${fmt(hValue, 3)}`, clamp(x - 80, 10, w - 180), y + barH / 2 + 42);
+}
+
+function drawHvDisk(H_hat, V_hat, radius) {
+    resizeCanvasToDisplaySize(hvCanvas);
+    const w = hvCanvas.width;
+    const h = hvCanvas.height;
+    ctxHv.clearRect(0, 0, w, h);
+    const cx = w / 2;
+    const cy = h / 2;
+    const R = Math.min(w, h) * 0.42;
+
+    const img = ctxHv.createImageData(w, h);
+    const data = img.data;
+    for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+            const dx = (x - cx) / R;
+            const dy = (y - cy) / R;
+            const rr = Math.hypot(dx, dy);
+            const idx = (y * w + x) * 4;
+            if (rr <= 1) {
+                let ang = Math.atan2(dy, dx);
+                if (ang < 0) ang += Math.PI * 2;
+                const hue = (3 * ang / Math.PI) % 6;
+                const rgb = hsv2rgb(hue, clamp(rr, 0, 1), 1);
+                data[idx] = rgb.r;
+                data[idx + 1] = rgb.g;
+                data[idx + 2] = rgb.b;
+                data[idx + 3] = 232;
+            } else {
+                data[idx + 3] = 0;
+            }
+        }
+    }
+    ctxHv.putImageData(img, 0, 0);
+
+    ctxHv.strokeStyle = 'rgba(15,23,42,0.16)';
+    ctxHv.lineWidth = Math.max(2, w * 0.003);
+    [0.25, 0.5, 0.75, 1.0].forEach(t => {
+        ctxHv.beginPath();
+        ctxHv.arc(cx, cy, R * t, 0, Math.PI * 2);
+        ctxHv.stroke();
+    });
+
+    ctxHv.strokeStyle = 'rgba(15,23,42,0.34)';
+    ctxHv.beginPath(); ctxHv.moveTo(cx - R - 16, cy); ctxHv.lineTo(cx + R + 16, cy); ctxHv.stroke();
+    ctxHv.beginPath(); ctxHv.moveTo(cx, cy - R - 16); ctxHv.lineTo(cx, cy + R + 16); ctxHv.stroke();
+
+    const px = cx + H_hat * R;
+    const py = cy + V_hat * R;
+    ctxHv.setLineDash([10, 8]);
+    ctxHv.strokeStyle = 'rgba(15,23,42,0.64)';
+    ctxHv.lineWidth = Math.max(3, w * 0.004);
+    ctxHv.beginPath(); ctxHv.moveTo(cx, cy); ctxHv.lineTo(px, py); ctxHv.stroke();
+    ctxHv.setLineDash([]);
+
+    ctxHv.fillStyle = '#fff';
+    ctxHv.strokeStyle = '#0f172a';
+    ctxHv.lineWidth = Math.max(4, w * 0.006);
+    ctxHv.beginPath(); ctxHv.arc(px, py, Math.max(10, w * 0.018), 0, Math.PI * 2); ctxHv.fill(); ctxHv.stroke();
+    ctxHv.fillStyle = '#0f172a';
+    ctxHv.beginPath(); ctxHv.arc(px, py, Math.max(3, w * 0.006), 0, Math.PI * 2); ctxHv.fill();
+
+    ctxHv.fillStyle = '#0f172a';
+    ctxHv.font = `800 ${Math.max(18, Math.round(w * 0.03))}px system-ui`;
+    ctxHv.fillText('Ĥ+', cx + R + 12, cy - 8);
+    ctxHv.fillText('V̂+', cx + 10, cy + R + 28);
+    ctxHv.fillStyle = '#334155';
+    ctxHv.font = `700 ${Math.max(14, Math.round(w * 0.024))}px system-ui`;
+    ctxHv.fillText(`ρ = ${fmt(radius, 3)}`, clamp(px + 18, 10, w - 150), clamp(py - 14, 20, h - 20));
+}
+
+function syncFromPicker() {
+    const c = picker.value;
+    rInput.value = parseInt(c.slice(1, 3), 16);
+    gInput.value = parseInt(c.slice(3, 5), 16);
+    bInput.value = parseInt(c.slice(5, 7), 16);
+    update(false);
+}
+
+function update(syncPicker = true) {
+    const R = Math.round(clamp(Number(rInput.value) || 0, 0, 255));
+    const G = Math.round(clamp(Number(gInput.value) || 0, 0, 255));
+    const B = Math.round(clamp(Number(bInput.value) || 0, 0, 255));
+    const kval = clamp(Number(kInput.value) || 1.0, 0.1, 10);
+
+    rInput.value = R;
+    gInput.value = G;
+    bInput.value = B;
+    kInput.value = kval.toFixed(1);
+    kRange.value = kval;
+    $('kText').textContent = kval.toFixed(2);
+
+    const hex = toHex(R, G, B);
+    if (syncPicker) picker.value = hex.toLowerCase();
+    $('hexText').textContent = hex;
+    $('rgbText').textContent = `RGB(${R}, ${G}, ${B})`;
+    preview.style.background = `rgb(${R}, ${G}, ${B})`;
+
+    const hsv = rgb2hsv(R / 255, G / 255, B / 255);
+    const hvi = hsv2hvi(hsv.h, hsv.s, hsv.v, kval);
+    let thetaFromPoint = Math.atan2(hvi.V_hat, hvi.H_hat);
+    if (thetaFromPoint < 0) thetaFromPoint += Math.PI * 2;
+    const thetaDeg = hvi.theta * 180 / Math.PI;
+    const radius = Math.hypot(hvi.H_hat, hvi.V_hat);
+
+    $('quickH').textContent = fmt(hsv.h, 3);
+    $('quickS').textContent = fmt(hsv.s, 3);
+    $('quickV').textContent = fmt(hsv.v, 3);
+    $('quickRho').textContent = fmt(hvi.targetRadius, 3);
+    $('thetaVal').textContent = fmt(hvi.theta, 4);
+    $('thetaDegVal').textContent = fmtDeg(thetaDeg);
+    $('rhoVal').textContent = fmt(hvi.targetRadius, 4);
+
+    // HSV numeric
+    $('hsvHNum').textContent = fmt(hsv.h);
+    $('hsvSNum').textContent = fmt(hsv.s);
+    $('hsvVBoxNum').textContent = fmt(hsv.v);
+
+    // HVI numeric
+    $('hviHNum').textContent = fmt(hvi.H_hat);
+    $('hviVNum').textContent = fmt(hvi.V_hat);
+    $('hviThetaNum').textContent = fmt(hvi.theta);
+    $('hviCkNum').textContent = fmt(hvi.Ck);
+    $('hviRhoNum').textContent = fmt(hvi.targetRadius);
+
+    const baseRgb = { r: R, g: G, b: B };
+    const hueRgb = hsv2rgb(hsv.h, 1, 1);
+    const satRgb = hsv2rgb(hsv.h, hsv.s, 1);
+    const valRgb = hsv2rgb(hsv.h, Math.max(hsv.s, 0.15), hsv.v);
+    const hsvGrayLevel = (hsv.h / 6 + hsv.s + hsv.v) / 3;
+
+    setBoxColor('hsvColorBox', rgbCss(baseRgb), `${hex}`);
+    setBoxColor('hsvGrayBox', grayCss(hsvGrayLevel), `avg=${fmt(hsvGrayLevel, 3)}`);
+    setBoxColor('hsvHBoxColor', rgbCss(hueRgb));
+    setBoxColor('hsvHBoxGray', grayCss(hsv.h / 6));
+    setBoxColor('hsvSBoxColor', rgbCss(satRgb));
+    setBoxColor('hsvSBoxGray', grayCss(hsv.s));
+    setBoxColor('hsvVBoxColor', rgbCss(valRgb));
+    setBoxColor('hsvVBoxGray', grayCss(hsv.v));
+
+    const thetaHue = (3 * hvi.theta / Math.PI) % 6;
+    const hviPseudoRgb = hsv2rgb(thetaHue, clamp(hvi.targetRadius, 0, 1), 1);
+    const hviGrayLevel = mixedGray((hvi.H_hat + 1) / 2, (hvi.V_hat + 1) / 2, hvi.Ck, hvi.targetRadius);
+
+    setBoxColor('hviColorBox', rgbCss(hviPseudoRgb), `θ=${fmt(hvi.theta, 3)}`);
+    $('hviGrayBox').style.background = hviGrayLevel;
+    $('hviGrayBox').dataset.text = `ρ=${fmt(hvi.targetRadius, 3)}`;
+
+    setBoxColor('hviHBoxColor', axisColor(hvi.H_hat, 0, 3));
+    setBoxColor('hviHBoxGray', grayCss((hvi.H_hat + 1) / 2));
+    setBoxColor('hviVBoxColor', axisColor(hvi.V_hat, 1.5, 4.5));
+    setBoxColor('hviVBoxGray', grayCss((hvi.V_hat + 1) / 2));
+    setBoxColor('hviThetaColor', rgbCss(hsv2rgb(thetaHue, 1, 1)));
+    setBoxColor('hviThetaGray', grayCss(angleToUnit(hvi.theta)));
+    setBoxColor('hviCkColor', rgbCss(hsv2rgb(thetaHue, clamp(hvi.Ck, 0, 1), 1)));
+    setBoxColor('hviCkGray', grayCss(hvi.Ck));
+    setBoxColor('hviRhoColor', rgbCss(hsv2rgb(thetaHue, clamp(hvi.targetRadius, 0, 1), 1)));
+    setBoxColor('hviRhoGray', grayCss(hvi.targetRadius));
+
+    const rawThetaErr = Math.abs(thetaFromPoint - hvi.theta);
+    const thetaErr = Math.min(rawThetaErr, Math.PI * 2 - rawThetaErr);
+    const radiusErr = Math.abs(radius - hvi.targetRadius);
+    $('checkTheta').innerHTML = `<strong>角度核对：</strong>θ = πH/3 = ${fmt(hvi.theta, 4)}，atan2(V̂, Ĥ) = ${fmt(thetaFromPoint, 4)}，误差 = ${thetaErr.toExponential(2)}。`;
+    $('checkRadius').innerHTML = `<strong>半径核对：</strong>√(Ĥ² + V̂²) = ${fmt(radius, 4)}，Ck·S = ${fmt(hvi.targetRadius, 4)}，误差 = ${radiusErr.toExponential(2)}。`;
+    $('pointExplain').innerHTML = `<strong>当前解释：</strong>H = ${fmt(hsv.h, 3)} → θ = ${fmt(hvi.theta, 3)} rad (${thetaDeg.toFixed(2)}°)，半径 ρ = Ck·S = ${fmt(hvi.targetRadius, 3)}，因此当前 HVI 点坐标为 (${fmt(hvi.H_hat, 3)}, ${fmt(hvi.V_hat, 3)})。`;
+
     drawHueLine(hsv.h);
-    drawHvDisk(hvi.H_hat, hvi.V_hat);
+    drawHvDisk(hvi.H_hat, hvi.V_hat, radius);
 }
 
-// 初始化
-update();
+picker.addEventListener('input', syncFromPicker);
+[rInput, gInput, bInput, kInput].forEach(el => el.addEventListener('input', () => update(true)));
+kRange.addEventListener('input', () => { kInput.value = kRange.value; update(true); });
+window.addEventListener('resize', () => update(true));
+update(true);
 </script>
 </body>
 </html>
