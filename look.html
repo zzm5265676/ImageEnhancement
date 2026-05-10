@@ -237,8 +237,12 @@ input[type="range"] { accent-color: var(--blue); }
     width: 100%;
     height: 100%;
     min-height: 0;
+    position: relative;
 }
 canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
     display: block;
@@ -631,6 +635,15 @@ const hCanvas = $('hCanvas');
 const ctxHv = hvCanvas.getContext('2d');
 const ctxH = hCanvas.getContext('2d');
 
+// 防抖函数（解决resize卡顿）
+function debounce(func, wait = 150) {
+    let timeout;
+    return (...args) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
 function clamp(x, lo, hi) { return Math.min(hi, Math.max(lo, x)); }
 function fmt(x, n = 4) { return Number.isFinite(x) ? x.toFixed(n) : '0.0000'; }
 function fmtDeg(x) { return `${x.toFixed(2)}°`; }
@@ -710,15 +723,19 @@ function mixedGray(...vals) {
     return grayCss(avg);
 }
 
+// 优化画布尺寸（固定比例+减少渲染压力）
 function resizeCanvasToDisplaySize(canvas) {
-    const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5); // 限制DPI防止性能爆炸
     const width = Math.max(1, Math.round(rect.width * dpr));
     const height = Math.max(1, Math.round(rect.height * dpr));
-    if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
+    
+    if (canvas.width === width && canvas.height === height) {
+        return { width, height, dpr };
     }
+    
+    canvas.width = width;
+    canvas.height = height;
     return { width, height, dpr };
 }
 
@@ -735,9 +752,7 @@ function roundRect(ctx, x, y, w, h, r, fill, stroke) {
 }
 
 function drawHueLine(hValue) {
-    resizeCanvasToDisplaySize(hCanvas);
-    const w = hCanvas.width;
-    const h = hCanvas.height;
+    const { w, h } = resizeCanvasToDisplaySize(hCanvas);
     ctxH.clearRect(0, 0, w, h);
 
     const pad = Math.max(42, w * 0.06);
@@ -780,9 +795,7 @@ function drawHueLine(hValue) {
 }
 
 function drawHvDisk(H_hat, V_hat, radius) {
-    resizeCanvasToDisplaySize(hvCanvas);
-    const w = hvCanvas.width;
-    const h = hvCanvas.height;
+    const { w, h } = resizeCanvasToDisplaySize(hvCanvas);
     ctxHv.clearRect(0, 0, w, h);
     const cx = w / 2;
     const cy = h / 2;
@@ -856,102 +869,114 @@ function syncFromPicker() {
     update(false);
 }
 
+// 缓存更新，减少重复绘制
+let updating = false;
 function update(syncPicker = true) {
-    const R = Math.round(clamp(Number(rInput.value) || 0, 0, 255));
-    const G = Math.round(clamp(Number(gInput.value) || 0, 0, 255));
-    const B = Math.round(clamp(Number(bInput.value) || 0, 0, 255));
-    const kval = clamp(Number(kInput.value) || 1.0, 0.1, 10);
+    if (updating) return;
+    updating = true;
+    
+    try {
+        const R = Math.round(clamp(Number(rInput.value) || 0, 0, 255));
+        const G = Math.round(clamp(Number(gInput.value) || 0, 0, 255));
+        const B = Math.round(clamp(Number(bInput.value) || 0, 0, 255));
+        const kval = clamp(Number(kInput.value) || 1.0, 0.1, 10);
 
-    rInput.value = R;
-    gInput.value = G;
-    bInput.value = B;
-    kInput.value = kval.toFixed(1);
-    kRange.value = kval;
-    $('kText').textContent = kval.toFixed(2);
+        rInput.value = R;
+        gInput.value = G;
+        bInput.value = B;
+        kInput.value = kval.toFixed(1);
+        kRange.value = kval;
+        $('kText').textContent = kval.toFixed(2);
 
-    const hex = toHex(R, G, B);
-    if (syncPicker) picker.value = hex.toLowerCase();
-    $('hexText').textContent = hex;
-    $('rgbText').textContent = `RGB(${R}, ${G}, ${B})`;
-    preview.style.background = `rgb(${R}, ${G}, ${B})`;
+        const hex = toHex(R, G, B);
+        if (syncPicker) picker.value = hex.toLowerCase();
+        $('hexText').textContent = hex;
+        $('rgbText').textContent = `RGB(${R}, ${G}, ${B})`;
+        preview.style.background = `rgb(${R}, ${G}, ${B})`;
 
-    const hsv = rgb2hsv(R / 255, G / 255, B / 255);
-    const hvi = hsv2hvi(hsv.h, hsv.s, hsv.v, kval);
-    let thetaFromPoint = Math.atan2(hvi.V_hat, hvi.H_hat);
-    if (thetaFromPoint < 0) thetaFromPoint += Math.PI * 2;
-    const thetaDeg = hvi.theta * 180 / Math.PI;
-    const radius = Math.hypot(hvi.H_hat, hvi.V_hat);
+        const hsv = rgb2hsv(R / 255, G / 255, B / 255);
+        const hvi = hsv2hvi(hsv.h, hsv.s, hsv.v, kval);
+        let thetaFromPoint = Math.atan2(hvi.V_hat, hvi.H_hat);
+        if (thetaFromPoint < 0) thetaFromPoint += Math.PI * 2;
+        const thetaDeg = hvi.theta * 180 / Math.PI;
+        const radius = Math.hypot(hvi.H_hat, hvi.V_hat);
 
-    $('quickH').textContent = fmt(hsv.h, 3);
-    $('quickS').textContent = fmt(hsv.s, 3);
-    $('quickV').textContent = fmt(hsv.v, 3);
-    $('quickRho').textContent = fmt(hvi.targetRadius, 3);
-    $('thetaVal').textContent = fmt(hvi.theta, 4);
-    $('thetaDegVal').textContent = fmtDeg(thetaDeg);
-    $('rhoVal').textContent = fmt(hvi.targetRadius, 4);
+        $('quickH').textContent = fmt(hsv.h, 3);
+        $('quickS').textContent = fmt(hsv.s, 3);
+        $('quickV').textContent = fmt(hsv.v, 3);
+        $('quickRho').textContent = fmt(hvi.targetRadius, 3);
+        $('thetaVal').textContent = fmt(hvi.theta, 4);
+        $('thetaDegVal').textContent = fmtDeg(thetaDeg);
+        $('rhoVal').textContent = fmt(hvi.targetRadius, 4);
 
-    // HSV numeric
-    $('hsvHNum').textContent = fmt(hsv.h);
-    $('hsvSNum').textContent = fmt(hsv.s);
-    $('hsvVBoxNum').textContent = fmt(hsv.v);
+        // HSV numeric
+        $('hsvHNum').textContent = fmt(hsv.h);
+        $('hsvSNum').textContent = fmt(hsv.s);
+        $('hsvVBoxNum').textContent = fmt(hsv.v);
 
-    // HVI numeric
-    $('hviHNum').textContent = fmt(hvi.H_hat);
-    $('hviVNum').textContent = fmt(hvi.V_hat);
-    $('hviThetaNum').textContent = fmt(hvi.theta);
-    $('hviCkNum').textContent = fmt(hvi.Ck);
-    $('hviRhoNum').textContent = fmt(hvi.targetRadius);
+        // HVI numeric
+        $('hviHNum').textContent = fmt(hvi.H_hat);
+        $('hviVNum').textContent = fmt(hvi.V_hat);
+        $('hviThetaNum').textContent = fmt(hvi.theta);
+        $('hviCkNum').textContent = fmt(hvi.Ck);
+        $('hviRhoNum').textContent = fmt(hvi.targetRadius);
 
-    const baseRgb = { r: R, g: G, b: B };
-    const hueRgb = hsv2rgb(hsv.h, 1, 1);
-    const satRgb = hsv2rgb(hsv.h, hsv.s, 1);
-    const valRgb = hsv2rgb(hsv.h, Math.max(hsv.s, 0.15), hsv.v);
-    const hsvGrayLevel = (hsv.h / 6 + hsv.s + hsv.v) / 3;
+        const baseRgb = { r: R, g: G, b: B };
+        const hueRgb = hsv2rgb(hsv.h, 1, 1);
+        const satRgb = hsv2rgb(hsv.h, hsv.s, 1);
+        const valRgb = hsv2rgb(hsv.h, Math.max(hsv.s, 0.15), hsv.v);
+        const hsvGrayLevel = (hsv.h / 6 + hsv.s + hsv.v) / 3;
 
-    setBoxColor('hsvColorBox', rgbCss(baseRgb), `${hex}`);
-    setBoxColor('hsvGrayBox', grayCss(hsvGrayLevel), `avg=${fmt(hsvGrayLevel, 3)}`);
-    setBoxColor('hsvHBoxColor', rgbCss(hueRgb));
-    setBoxColor('hsvHBoxGray', grayCss(hsv.h / 6));
-    setBoxColor('hsvSBoxColor', rgbCss(satRgb));
-    setBoxColor('hsvSBoxGray', grayCss(hsv.s));
-    setBoxColor('hsvVBoxColor', rgbCss(valRgb));
-    setBoxColor('hsvVBoxGray', grayCss(hsv.v));
+        setBoxColor('hsvColorBox', rgbCss(baseRgb), `${hex}`);
+        setBoxColor('hsvGrayBox', grayCss(hsvGrayLevel), `avg=${fmt(hsvGrayLevel, 3)}`);
+        setBoxColor('hsvHBoxColor', rgbCss(hueRgb));
+        setBoxColor('hsvHBoxGray', grayCss(hsv.h / 6));
+        setBoxColor('hsvSBoxColor', rgbCss(satRgb));
+        setBoxColor('hsvSBoxGray', grayCss(hsv.s));
+        setBoxColor('hsvVBoxColor', rgbCss(valRgb));
+        setBoxColor('hsvVBoxGray', grayCss(hsv.v));
 
-    const thetaHue = (3 * hvi.theta / Math.PI) % 6;
-    const hviPseudoRgb = hsv2rgb(thetaHue, clamp(hvi.targetRadius, 0, 1), 1);
-    const hviGrayLevel = mixedGray((hvi.H_hat + 1) / 2, (hvi.V_hat + 1) / 2, hvi.Ck, hvi.targetRadius);
+        const thetaHue = (3 * hvi.theta / Math.PI) % 6;
+        const hviPseudoRgb = hsv2rgb(thetaHue, clamp(hvi.targetRadius, 0, 1), 1);
+        const hviGrayLevel = mixedGray((hvi.H_hat + 1) / 2, (hvi.V_hat + 1) / 2, hvi.Ck, hvi.targetRadius);
 
-    setBoxColor('hviColorBox', rgbCss(hviPseudoRgb), `θ=${fmt(hvi.theta, 3)}`);
-    $('hviGrayBox').style.background = hviGrayLevel;
-    $('hviGrayBox').dataset.text = `ρ=${fmt(hvi.targetRadius, 3)}`;
+        setBoxColor('hviColorBox', rgbCss(hviPseudoRgb), `θ=${fmt(hvi.theta, 3)}`);
+        $('hviGrayBox').style.background = hviGrayLevel;
+        $('hviGrayBox').dataset.text = `ρ=${fmt(hvi.targetRadius, 3)}`;
 
-    setBoxColor('hviHBoxColor', axisColor(hvi.H_hat, 0, 3));
-    setBoxColor('hviHBoxGray', grayCss((hvi.H_hat + 1) / 2));
-    setBoxColor('hviVBoxColor', axisColor(hvi.V_hat, 1.5, 4.5));
-    setBoxColor('hviVBoxGray', grayCss((hvi.V_hat + 1) / 2));
-    setBoxColor('hviThetaColor', rgbCss(hsv2rgb(thetaHue, 1, 1)));
-    setBoxColor('hviThetaGray', grayCss(angleToUnit(hvi.theta)));
-    setBoxColor('hviCkColor', rgbCss(hsv2rgb(thetaHue, clamp(hvi.Ck, 0, 1), 1)));
-    setBoxColor('hviCkGray', grayCss(hvi.Ck));
-    setBoxColor('hviRhoColor', rgbCss(hsv2rgb(thetaHue, clamp(hvi.targetRadius, 0, 1), 1)));
-    setBoxColor('hviRhoGray', grayCss(hvi.targetRadius));
+        setBoxColor('hviHBoxColor', axisColor(hvi.H_hat, 0, 3));
+        setBoxColor('hviHBoxGray', grayCss((hvi.H_hat + 1) / 2));
+        setBoxColor('hviVBoxColor', axisColor(hvi.V_hat, 1.5, 4.5));
+        setBoxColor('hviVBoxGray', grayCss((hvi.V_hat + 1) / 2));
+        setBoxColor('hviThetaColor', rgbCss(hsv2rgb(thetaHue, 1, 1)));
+        setBoxColor('hviThetaGray', grayCss(angleToUnit(hvi.theta)));
+        setBoxColor('hviCkColor', rgbCss(hsv2rgb(thetaHue, clamp(hvi.Ck, 0, 1), 1)));
+        setBoxColor('hviCkGray', grayCss(hvi.Ck));
+        setBoxColor('hviRhoColor', rgbCss(hsv2rgb(thetaHue, clamp(hvi.targetRadius, 0, 1), 1)));
+        setBoxColor('hviRhoGray', grayCss(hvi.targetRadius));
 
-    const rawThetaErr = Math.abs(thetaFromPoint - hvi.theta);
-    const thetaErr = Math.min(rawThetaErr, Math.PI * 2 - rawThetaErr);
-    const radiusErr = Math.abs(radius - hvi.targetRadius);
-    $('checkTheta').innerHTML = `<strong>角度核对：</strong>θ = πH/3 = ${fmt(hvi.theta, 4)}，atan2(V̂, Ĥ) = ${fmt(thetaFromPoint, 4)}，误差 = ${thetaErr.toExponential(2)}。`;
-    $('checkRadius').innerHTML = `<strong>半径核对：</strong>√(Ĥ² + V̂²) = ${fmt(radius, 4)}，Ck·S = ${fmt(hvi.targetRadius, 4)}，误差 = ${radiusErr.toExponential(2)}。`;
-    $('pointExplain').innerHTML = `<strong>当前解释：</strong>H = ${fmt(hsv.h, 3)} → θ = ${fmt(hvi.theta, 3)} rad (${thetaDeg.toFixed(2)}°)，半径 ρ = Ck·S = ${fmt(hvi.targetRadius, 3)}，因此当前 HVI 点坐标为 (${fmt(hvi.H_hat, 3)}, ${fmt(hvi.V_hat, 3)})。`;
+        const rawThetaErr = Math.abs(thetaFromPoint - hvi.theta);
+        const thetaErr = Math.min(rawThetaErr, Math.PI * 2 - rawThetaErr);
+        const radiusErr = Math.abs(radius - hvi.targetRadius);
+        $('checkTheta').innerHTML = `<strong>角度核对：</strong>θ = πH/3 = ${fmt(hvi.theta, 4)}，atan2(V̂, Ĥ) = ${fmt(thetaFromPoint, 4)}，误差 = ${thetaErr.toExponential(2)}。`;
+        $('checkRadius').innerHTML = `<strong>半径核对：</strong>√(Ĥ² + V̂²) = ${fmt(radius, 4)}，Ck·S = ${fmt(hvi.targetRadius, 4)}，误差 = ${radiusErr.toExponential(2)}。`;
+        $('pointExplain').innerHTML = `<strong>当前解释：</strong>H = ${fmt(hsv.h, 3)} → θ = ${fmt(hvi.theta, 3)} rad (${thetaDeg.toFixed(2)}°)，半径 ρ = Ck·S = ${fmt(hvi.targetRadius, 3)}，因此当前 HVI 点坐标为 (${fmt(hvi.H_hat, 3)}, ${fmt(hvi.V_hat, 3)})。`;
 
-    drawHueLine(hsv.h);
-    drawHvDisk(hvi.H_hat, hvi.V_hat, radius);
+        drawHueLine(hsv.h);
+        drawHvDisk(hvi.H_hat, hvi.V_hat, radius);
+    } finally {
+        updating = false;
+    }
 }
 
+// 事件绑定优化
 picker.addEventListener('input', syncFromPicker);
 [rInput, gInput, bInput, kInput].forEach(el => el.addEventListener('input', () => update(true)));
 kRange.addEventListener('input', () => { kInput.value = kRange.value; update(true); });
-window.addEventListener('resize', () => update(true));
-update(true);
+window.addEventListener('resize', debounce(() => update(true)));
+
+// 初始化强制正确尺寸
+setTimeout(() => update(true), 0);
 </script>
 </body>
 </html>
